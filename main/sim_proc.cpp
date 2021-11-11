@@ -1,19 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
+#include <iostream>
 #include "sim_proc.h"
+#include "OO_Structures.h"
 
-/*  argc holds the number of command line arguments
-    argv[] holds the commands themselves
+   uint_fast32_t uid, clk, instr_count;
 
-    Example:-
-    sim 256 32 4 gcc_trace.txt
-    argc = 5
-    argv[0] = "sim"
-    argv[1] = "256"
-    argv[2] = "32"
-    ... and so on
-*/
+   size_t head_rob, tail_rob;
+
+   const size_t ARF_SIZE = 67;
+
+   std::vector<rob_line> rob;
+   std::vector<arf_line> arf;
+   std::vector<rmt_line> rmt;
+   std::vector<iq_line> iq;
+
 int main (int argc, char* argv[])
 {
     FILE *FP;               // File handler
@@ -32,10 +35,36 @@ int main (int argc, char* argv[])
     params.iq_size      = strtoul(argv[2], NULL, 10);
     params.width        = strtoul(argv[3], NULL, 10);
     trace_file          = argv[4];
-    printf("rob_size:%lu "
+    /*printf("rob_size:%lu "
             "iq_size:%lu "
             "width:%lu "
-            "tracefile:%s\n", params.rob_size, params.iq_size, params.width, trace_file);
+            "tracefile:%s\n", params.rob_size, params.iq_size, params.width, trace_file);*/
+   size_t i;
+
+    for(i=0;i<params.rob_size;++i){
+       rob.emplace_back(rob_line(i));
+    }
+    head_rob=tail_rob=0;
+
+   for(i=0;i<params.iq_size;++i){
+      iq.emplace_back(iq_line());
+   }
+
+   for(i=0;i<ARF_SIZE;++i){
+      rmt.emplace_back(rmt_line());
+   }
+
+   uid= clk= instr_count=0;
+   head_rob=tail_rob=0;
+
+
+   /////// DEBUG POINTERS
+   std::vector<rob_line> *dbg_z_rb = &rob;
+   std::vector<rmt_line> *dbg_z_rt = &rmt;
+   std::vector<iq_line> *dbg_z_isq = &iq;
+   uint_fast32_t *dbg_uid=&uid, *dbg_clk=&clk, *dbg_instr_count=&instr_count;
+   size_t *dbg_head_rob=&head_rob, *dbg_tail_rob=&tail_rob;
+
     // Open trace_file in read mode
     FP = fopen(trace_file, "r");
     if(FP == NULL)
@@ -44,14 +73,21 @@ int main (int argc, char* argv[])
         printf("Error: Unable to open file %s\n", trace_file);
         exit(EXIT_FAILURE);
     }
-    
+
+    std::vector<instruction> instr;
+
     while(fscanf(FP, "%lx %d %d %d %d", &pc, &op_type, &dest, &src1, &src2) != EOF)
     {
-        
-        printf("%lx %d %d %d %d\n", pc, op_type, dest, src1, src2); //Print to check if inputs have been read correctly
-        /*************************************
-            Add calls to OOO simulator here
-        **************************************/
+         //    printf("%lx %d %d %d %d\n", pc, op_type, dest, src1, src2); //Print to check if inputs have been read correctly
+        instr.emplace_back(instruction(uid, pc, op_type, dest, src1, src2));
+        ++uid;
     }
+    fclose(FP);
+
+    for(instruction &i : instr) {
+       std::cout << i.to_s();
+    }
+
+
     return EXIT_SUCCESS;
 }

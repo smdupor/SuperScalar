@@ -27,9 +27,20 @@ struct instruction{
       this->r1 = R1;
       this->r2 = R2;
       loaded = complete = false;
-      fu= -1;
-              fe_beg= fe_dur= de_beg= de_dur= rn_beg= rn_dur= rr_beg= rr_dur= di_beg= di_dur= is_beg= is_dur=
+      fu= type;
+      fe_beg= fe_dur= de_beg= de_dur= rn_beg= rn_dur= rr_beg= rr_dur= di_beg= di_dur= is_beg= is_dur=
               ex_beg= ex_dur= wb_beg= wb_dur= rt_beg= rt_dur = 0;
+      switch(this->type) {
+         case 1:
+            this->ex_dur = 2;
+            break;
+         case 2:
+            this->ex_dur = 5;
+            break;
+         default:
+            this->ex_dur = 1;
+      }
+
    }
 
    std::string to_s() const {

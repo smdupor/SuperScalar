@@ -17,6 +17,7 @@
    std::vector<rmt_line> rmt;
    std::vector<iq_line> iq;
 
+   void run_simulation(std::vector<instruction> *instrs);
 
 
 int main (int argc, char* argv[])
@@ -93,3 +94,12 @@ int main (int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
+
+void run_simulation(std::vector<instruction> *instrs){
+
+	std::vector<*instruction> exwb, isex, diis, rrdi, rnrr, dern, fede; 
+
+
+}
+
+

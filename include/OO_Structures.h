@@ -8,7 +8,11 @@
 #include <cstdint>
 #include <string>
 
+enum {FE=1, DE=2, RN =3, RR=4, DI=5, IS=6, EX=7, WB=8, RT=9};
+
 struct instruction{
+
+   uint_fast32_t int_counter;
    uint_fast64_t uid;
    uint_fast32_t pc;
    uint_fast8_t type;
@@ -20,6 +24,7 @@ struct instruction{
 
    explicit instruction(uint_fast64_t Uid, uint_fast32_t Pc, uint_fast8_t Type, int_fast16_t Dest, int_fast16_t R1,
                         int_fast16_t R2){
+      int_counter = 0;
       this->uid = Uid;
       this->pc = Pc;
       this->type = Type;
@@ -43,6 +48,7 @@ struct instruction{
 
    }
 
+
    std::string to_s() const {
       std::string out;
       out += std::to_string(uid) + " fu{" + std::to_string(fu) + "} src{" + std::to_string(r1) + "," +
@@ -57,6 +63,35 @@ struct instruction{
               "} WB{"+std::to_string(wb_beg) + "," + std::to_string(wb_dur) +
               "} RT{"+std::to_string(rt_beg) + "," + std::to_string(rt_dur) + "}\n";
       return out;
+   }
+
+   bool operator==(uint_fast32_t input){
+      bool result;
+      input==this->int_counter ? result= true : result= false;
+      return result;
+   }
+
+   bool operator<=(uint_fast32_t input){
+      bool result;
+      this->int_counter<=input ? result= true : result= false;
+      return result;
+   }
+
+   bool operator<(uint_fast32_t input){
+      bool result;
+      this->int_counter<input ? result= true : result= false;
+      return result;
+   }
+
+   bool ready(uint_fast8_t state){
+      switch(state){
+         case EX:
+            if(type==0 && this->int_counter == this->ex_dur) return true;
+            break;
+         default:
+            return false;
+      }
+      return false;
    }
 
 };

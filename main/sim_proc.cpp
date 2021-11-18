@@ -96,9 +96,16 @@ int main (int argc, char* argv[])
 }
 
 void run_simulation(std::vector<instruction> *instrs){
+   bool done = false;
+	std::vector<instruction *> exwb, isex, diis, rrdi, rnrr, dern, fede;
 
-	std::vector<*instruction> exwb, isex, diis, rrdi, rnrr, dern, fede; 
+   while(!done){
 
+
+
+
+
+   }
 
 }
 

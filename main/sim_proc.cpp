@@ -17,7 +17,7 @@
 
    uint_fast32_t uid, clk, instr_count;
 
-   size_t head_rob, tail_rob;
+   size_t head_rob, tail_rob, head_iq, tail_iq;
 
    const size_t ARF_SIZE = 67;
 
@@ -26,7 +26,7 @@
    std::vector<rmt_line> rmt;
    std::vector<iq_line> iq;
 
-   void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width);
+   void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max);
 
 
 int main (int argc, char* argv[])
@@ -57,11 +57,11 @@ int main (int argc, char* argv[])
        rob.emplace_back(rob_line(i));
     }
     head_rob=tail_rob=0;
-
+/*
    for(i=0;i<params.iq_size;++i){
       iq.emplace_back(iq_line());
    }
-
+*/
    for(i=0;i<ARF_SIZE;++i){
       rmt.emplace_back(rmt_line());
    }
@@ -71,11 +71,11 @@ int main (int argc, char* argv[])
 
 
    /////// DEBUG POINTERS
-   std::vector<rob_line> *dbg_z_rb = &rob;
+   /*std::vector<rob_line> *dbg_z_rb = &rob;
    std::vector<rmt_line> *dbg_z_rt = &rmt;
    std::vector<iq_line> *dbg_z_isq = &iq;
    uint_fast32_t *dbg_uid=&uid, *dbg_clk=&clk, *dbg_instr_count=&instr_count;
-   size_t *dbg_head_rob=&head_rob, *dbg_tail_rob=&tail_rob;
+   size_t *dbg_head_rob=&head_rob, *dbg_tail_rob=&tail_rob;*/
 
     // Open trace_file in read mode
     FP = fopen(trace_file, "r");
@@ -96,7 +96,7 @@ int main (int argc, char* argv[])
     }
     fclose(FP);
 
-   run_simulation(instr, params.width);
+   run_simulation(instr, params.width, params.iq_size);
 
     for(instruction &i : instr) {
        std::cout << i.to_s();
@@ -106,12 +106,16 @@ int main (int argc, char* argv[])
     return EXIT_SUCCESS;
 }
 
-void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width){
+void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max){
    bool done = false;
-   bool rob_full = false;
+   /*bool rob_full = false;
+   bool ra1, ra2;
+   int_fast32_t ra1t, ra2t;*/
 	std::vector<instruction *> exwb, isex, diis, rrdi, rnrr, dern, fede;
 
    uint_fast16_t j;
+   uint_fast16_t rob_avail = rob.size();
+   uint_fast16_t iss_avail = iq_max;
 
    uint_fast32_t last_fetched = 0;
 
@@ -119,9 +123,11 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width){
 
       //RETIRE
       for(j=0; j < width; ++j){
+         if(rob_avail==rob.size()) break;
          if(rob[head_rob].ready){
             instrs[rob[head_rob].index].rt_beg = clk;
             ++head_rob;
+            ++rob_avail;
             if(head_rob == rob.size()) head_rob = 0;
          }
       }
@@ -129,59 +135,160 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width){
       // WRITEBACK
       for(j=0; j < width; ++j){
          for(instruction * i : exwb){
-            std::find_if(rob.begin(), rob.end(), [&](instruction inst) {return i->uid == inst.uid;})->ready=true;
+            i->wb_beg=clk;
+            rob[i->rob_dest].ready;
+
          }
          exwb.clear();
       }
 
 
       //EXECUTE
-      for(j=0; j < width; ++j){
-
+      for(instruction *i: isex){
+         if(i->ex_beg + i->ex_dur == clk) {
+            i->complete=true;
+            exwb.emplace_back(i);
+         }
       }
+      // Wakeup other instrs
+      for(instruction *i: isex){
+         if(i->complete) {
+            for(instruction *isq : diis) {
+               if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
+               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+            }
+            for(instruction *isq : rrdi) {
+               if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
+               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+            }
+            for(instruction *isq : rnrr) {
+               if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
+               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+            }
+         }
+      }
+      isex.erase(std::remove_if(isex.begin(), isex.end(), [](instruction *in){return in->complete;}), isex.end());
+
 
 
       //ISSUE
       for(j=0; j < width; ++j){
-
+         for(instruction *i : diis) {
+            if(i->loaded && i->r1_ready && i->r2_ready) {
+               i->is_beg=clk;
+               i->ex_beg=clk+1;
+               i->loaded=false;
+               isex.emplace_back(i);
+            }
+         }
       }
+      diis.erase(std::remove_if(diis.begin(), diis.end(), [](instruction *in){return !in->loaded;}), diis.end());
+
 
 
       //DISPATCH
-      for(j=0; j < width; ++j){
+      if(iss_avail >= rrdi.size() && rrdi.size()>0) {
+         for (j = 0; j < width; ++j) {
+            rrdi[j]->di_beg=clk;
+            diis.emplace_back(rrdi[j]);
+            iss_avail--;
 
+            /*
+            if(rrdi[j]->r1_renamed && rob[rrdi[j]->r1b].ready) {
+               ra1 = true;
+            } else if (rrdi[j]->r1_renamed && !rob[rrdi[j]->r1b].ready) {
+               ra1 = false;
+            } else {
+               ra1=true;
+            }
+            ra1t = rrdi[j]->r1b;
+
+            if(rrdi[j]->r2_renamed && rob[rrdi[j]->r1b].ready) {
+               ra2 = true;
+            } else if (rrdi[j]->r2_renamed && !rob[rrdi[j]->r1b].ready) {
+               ra2 = false;
+            } else {
+               ra2=true;
+            }
+            ra2t = rrdi[j]->r2b;
+            iq.emplace_back(iq_line( ra1, ra1t, ra2, ra2t, rrdi[j]->dest, rrdi[j]->pc));*/
+
+         }
+         rrdi.clear();
       }
 
 
       //REG READ
-      if(rrdi.empty() && !rnrr.empty()) {
+      if(rrdi.empty()) {
          for (j = 0; j < rnrr.size(); ++j) {
             rnrr[j]->rr_beg=clk;
-            /////////// STOPPED HERE
+
+            // If both source operands ready
+            //if(((rnrr[j]->r1_renamed && rob[rnrr[j]->r1].ready)||!rnrr[j]->r1_renamed) &&
+            //((rnrr[j]->r2_renamed && rob[rnrr[j]->r2].ready)||!rnrr[j]->r2_renamed)) {
+               rrdi.emplace_back(rnrr[j]);
+               rnrr[j]->loaded = true;
+
+            //}
+
          }
+         rnrr.erase(std::remove_if(rnrr.begin(), rnrr.end(), [](instruction *in){return in->loaded;}), rnrr.end());
       }
 
 
+      /////////////////////////////// TODO WHEN PICKING BACK UP
+      //////////// THE RMT IS NOT BEING UPDATED WHICH IS CAUSING A DEADLOCK.
+      /////////// IN BELOW FUNCITONALITY WE ARE PULLING RMT ON ALWAYS_VALID MOST LIKELY
+
       //RENAME
-      if(!rob_full && !dern.empty() && rnrr.empty()) {
-         if((head_rob <= tail_rob && rob.size()-(tail_rob-head_rob) >= dern.size()) ||
-                  (head_rob > tail_rob && head_rob-tail_rob >= dern.size())) {
+      if(dern.size() <= rob_avail && !dern.empty() && rnrr.empty()) {
+
             for (j = 0; j < dern.size(); ++j) {
                dern[j]->rn_beg=clk;
+
+               // move rob pointer
                tail_rob++;
+               rob_avail--;
                if(tail_rob==rob.size()) tail_rob=0;
 
+               // emplace instr into rob
                rob[tail_rob].ready=false;
                rob[tail_rob].pc=dern[j]->pc;
                rob[tail_rob].arf_dest = dern[j]->dest;
 
-               dern[j]->r1; ///// RENAME REG 1
-               dern[j]->r2; ///// RENAME REG 2
-               dern[j]->dest; ///// RENAME DEST
+
+               // update the rmt
+               if(rob[tail_rob].arf_dest != -1) {
+                  rmt[rob[tail_rob].arf_dest].tag = tail_rob;
+                  rmt[rob[tail_rob].arf_dest].valid = true;
+               }
+
+               // rename the registers
+               if(dern[j]->r1 != -1 && rmt[dern[j]->r1].valid) {
+                  dern[j]->r1_renamed=true;
+                  dern[j]->r1b=rmt[dern[j]->r1].tag;
+                  dern[j]->r1_ready = rob[dern[j]->r1b].ready;
+               } else
+               {
+                  dern[j]->r1_renamed=false;
+                  dern[j]->r1b=dern[j]->r1;
+                  dern[j]->r1_ready = true;
+               }
+               if(dern[j]->r2 != -1 && rmt[dern[j]->r2].valid) {
+                  dern[j]->r2_renamed=true;
+                  dern[j]->r2b=rmt[dern[j]->r2].tag;
+                  dern[j]->r2_ready = rob[dern[j]->r2b].ready;
+               } else
+               {
+                  dern[j]->r2_renamed=false;
+                  dern[j]->r2b=dern[j]->r2;
+                  dern[j]->r2_ready = true;
+               }
+               dern[j]->rob_dest = tail_rob;
                rnrr.emplace_back(dern[j]);
             }
             dern.clear();
-         }
+
       }
 
 
@@ -207,7 +314,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width){
 
       // ADVANCE CLOCK CYCLE AND EXIT CONDITION
       ++clk;
-      if(clk > 10263) break;
+      if(clk > 3 && rob_avail == rob.size() && fede.empty()) break;
    }
 
 }

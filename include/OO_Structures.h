@@ -16,8 +16,8 @@ struct instruction{
    uint_fast64_t uid;
    uint_fast32_t pc;
    uint_fast8_t type;
-   int_fast16_t dest, r1, r2, fu;
-   bool loaded, complete;
+   int_fast16_t dest, r1, r2, r1b, r2b, fu, rob_dest;
+   bool loaded, complete, r1_renamed, r2_renamed, r1_ready, r2_ready;
 
    uint_fast32_t fe_beg, fe_dur, de_beg, de_dur, rn_beg, rn_dur, rr_beg, rr_dur, di_beg, di_dur, is_beg, is_dur,
                   ex_beg, ex_dur, wb_beg, wb_dur, rt_beg, rt_dur;
@@ -31,7 +31,7 @@ struct instruction{
       this->dest = Dest;
       this->r1 = R1;
       this->r2 = R2;
-      loaded = complete = false;
+      r1_renamed= r2_renamed=loaded = complete = false;
       fu= type;
       fe_beg= fe_dur= de_beg= de_dur= rn_beg= rn_dur= rr_beg= rr_dur= di_beg= di_dur= is_beg= is_dur=
               ex_beg= ex_dur= wb_beg= wb_dur= rt_beg= rt_dur = 0;
@@ -127,9 +127,22 @@ struct iq_line {
    bool valid, ready_r1, ready_r2;
    int_fast32_t tag_dest, tag_r1, tag_r2;
 
+   uint_fast32_t pc;
+
    explicit iq_line(){
       valid=ready_r1=ready_r2 = false;
       tag_dest=tag_r1=tag_r2 = INT32_MIN;
+   }
+   explicit iq_line(bool rr1, int_fast32_t tr1, bool rr2, int_fast32_t tr2, int_fast32_t dst, uint_fast32_t procg){
+      valid=true;
+      ready_r1 = rr1;
+      ready_r2=rr2;
+
+      tag_dest=dst;
+      tag_r1=tr1;
+      tag_r2=tr2;
+
+      pc=procg;
    }
 };
 

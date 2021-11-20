@@ -3,8 +3,17 @@
 #include <string.h>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #include "sim_proc.h"
 #include "OO_Structures.h"
+/*
+   typedef struct rob_point{
+      size_t index;
+      void operator=(uint_fast16_t inc){
+         index=inc;
+         if(index == rob_)
+      }
+} rob_pointer;*/
 
    uint_fast32_t uid, clk, instr_count;
 
@@ -17,7 +26,7 @@
    std::vector<rmt_line> rmt;
    std::vector<iq_line> iq;
 
-   void run_simulation(std::vector<instruction> *instrs);
+   void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width);
 
 
 int main (int argc, char* argv[])
@@ -87,6 +96,8 @@ int main (int argc, char* argv[])
     }
     fclose(FP);
 
+   run_simulation(instr, params.width);
+
     for(instruction &i : instr) {
        std::cout << i.to_s();
     }
@@ -95,16 +106,108 @@ int main (int argc, char* argv[])
     return EXIT_SUCCESS;
 }
 
-void run_simulation(std::vector<instruction> *instrs){
+void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width){
    bool done = false;
+   bool rob_full = false;
 	std::vector<instruction *> exwb, isex, diis, rrdi, rnrr, dern, fede;
+
+   uint_fast16_t j;
+
+   uint_fast32_t last_fetched = 0;
 
    while(!done){
 
+      //RETIRE
+      for(j=0; j < width; ++j){
+         if(rob[head_rob].ready){
+            instrs[rob[head_rob].index].rt_beg = clk;
+            ++head_rob;
+            if(head_rob == rob.size()) head_rob = 0;
+         }
+      }
+
+      // WRITEBACK
+      for(j=0; j < width; ++j){
+         for(instruction * i : exwb){
+            std::find_if(rob.begin(), rob.end(), [&](instruction inst) {return i->uid == inst.uid;})->ready=true;
+         }
+         exwb.clear();
+      }
 
 
+      //EXECUTE
+      for(j=0; j < width; ++j){
+
+      }
 
 
+      //ISSUE
+      for(j=0; j < width; ++j){
+
+      }
+
+
+      //DISPATCH
+      for(j=0; j < width; ++j){
+
+      }
+
+
+      //REG READ
+      if(rrdi.empty() && !rnrr.empty()) {
+         for (j = 0; j < rnrr.size(); ++j) {
+            rnrr[j]->rr_beg=clk;
+            /////////// STOPPED HERE
+         }
+      }
+
+
+      //RENAME
+      if(!rob_full && !dern.empty() && rnrr.empty()) {
+         if((head_rob <= tail_rob && rob.size()-(tail_rob-head_rob) >= dern.size()) ||
+                  (head_rob > tail_rob && head_rob-tail_rob >= dern.size())) {
+            for (j = 0; j < dern.size(); ++j) {
+               dern[j]->rn_beg=clk;
+               tail_rob++;
+               if(tail_rob==rob.size()) tail_rob=0;
+
+               rob[tail_rob].ready=false;
+               rob[tail_rob].pc=dern[j]->pc;
+               rob[tail_rob].arf_dest = dern[j]->dest;
+
+               dern[j]->r1; ///// RENAME REG 1
+               dern[j]->r2; ///// RENAME REG 2
+               dern[j]->dest; ///// RENAME DEST
+               rnrr.emplace_back(dern[j]);
+            }
+            dern.clear();
+         }
+      }
+
+
+      //DECODE
+      if(!fede.empty() && dern.empty()){
+      for(j=0; j < fede.size(); ++j){
+         fede[j]->de_beg=clk;
+         dern.emplace_back(fede[j]);
+
+      }
+      fede.clear();
+      }
+
+
+      //FETCH
+      if(fede.empty()) {
+         for (j = 0; j < width && last_fetched < instrs.size(); ++j) {
+            fede.emplace_back(&instrs[++last_fetched]);
+            instrs[last_fetched].fe_beg=clk;
+         }
+      }
+
+
+      // ADVANCE CLOCK CYCLE AND EXIT CONDITION
+      ++clk;
+      if(clk > 10263) break;
    }
 
 }

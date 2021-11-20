@@ -99,25 +99,13 @@ struct instruction{
 struct rob_line {
    int_fast16_t arf_dest;
    uint_fast32_t pc, index;
-   bool ready, exception, mispredict, head, tail;
+   bool ready, exception, mispredict;
 
-   rob_line *next, *prev;
-
-   explicit rob_line(uint_fast16_t DST, uint_fast16_t IND, uint_fast32_t PC, rob_line *NXT) {
-      this->arf_dest = DST;
-      this->index = IND;
-      this->pc = PC;
-      ready=exception=mispredict=head=tail=false;
-      this->next = NXT;
-      this->prev = nullptr;
-   }
    explicit rob_line(uint_fast32_t ind) {
       this->arf_dest = INT16_MIN;
       this->index = ind;
       this->pc = 0;
-      ready=exception=mispredict=head=tail=false;
-      this->next = nullptr;
-      this->prev = nullptr;
+      ready=exception=mispredict=false;
    }
 };
 

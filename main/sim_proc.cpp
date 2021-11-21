@@ -263,8 +263,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       if(dern.size() <= rob_avail && !dern.empty() && rnrr.empty()) {
 
             for (j = 0; j < dern.size(); ++j) {
-               dern[j]->rn_beg=clk;
-               dern[j]->de_dur=clk-dern[j]->de_beg;
+
 
                // emplace instr into rob
              //  if(dern[j]->dest!= -1) {
@@ -318,9 +317,10 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       //DECODE
       if(!fede.empty() && dern.empty()){
       for(j=0; j < fede.size(); ++j){
-         fede[j]->de_beg=clk;
-         fede[j]->fe_dur=clk-fede[j]->fe_beg;
+
          dern.emplace_back(fede[j]);
+         dern[j]->rn_beg=clk+1;
+         dern[j]->de_dur=clk+1-dern[j]->de_beg;
 
       }
       fede.clear();
@@ -332,6 +332,8 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
          for (j = 0; j < width && last_fetched < instrs.size(); ++j) {
             fede.emplace_back(&instrs[last_fetched]);
             instrs[last_fetched].fe_beg=clk;
+            fede[j]->de_beg=clk+1;
+            fede[j]->fe_dur=clk+1-fede[j]->fe_beg;
             ++last_fetched;
          }
       }

@@ -130,10 +130,14 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 
    while(true){
 
+      //////// NEXT STEPS: RETIRE SEEMS BROKEN BASED ON THE FACT THAT DEST -1 instrs not being put
+      /////// Into the ROB. Need to refactor to add these back into the ROB AND fix register readiness
+      /////// Lookups in a different manner
+
       //RETIRE
       for(j=0; j < width; ++j){
          if(rob_avail==rob.size()) break;
-         if(rob[head_rob].ready){
+         if(rob[head_rob].ready && instrs[rob[head_rob].index].wb_beg>0){
             instrs[rob[head_rob].index].rt_dur = clk-instrs[rob[head_rob].index].rt_beg+1;
             for(rmt_line &l : rmt){
                if(l.tag == (int_fast32_t) head_rob) l.valid = false;
@@ -151,7 +155,11 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
             i->wb_beg=clk;
             i->wb_dur=1;
             i->rt_beg=clk+1;
-            rob[i->rob_dest].ready=true;
+            if(i->rob_dest >= 0) {
+               rob[i->rob_dest].ready = true;
+            } else{
+               i->rt_dur=1;
+            }
 
          }
          exwb.clear();
@@ -171,29 +179,28 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
          if(i->complete) {
             for(instruction *isq : diis) {
                if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
-               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+               if(isq->r2_renamed && isq->r2b == i->rob_dest) isq->r2_ready=true;
             }
             for(instruction *isq : rrdi) {
                if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
-               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+               if(isq->r2_renamed && isq->r2b == i->rob_dest) isq->r2_ready=true;
             }
             for(instruction *isq : rnrr) {
                if(isq->r1_renamed && isq->r1b == i->rob_dest) isq->r1_ready=true;
-               if(isq->r2_renamed && isq->r1b == i->rob_dest) isq->r2_ready=true;
+               if(isq->r2_renamed && isq->r2b == i->rob_dest) isq->r2_ready=true;
+            }
+            if(i->rob_dest >= 0) {
+               rob[i->rob_dest].ready = true;
             }
          }
       }
       isex.erase(std::remove_if(isex.begin(), isex.end(), [](instruction *in){return in->complete;}), isex.end());
 
-
-      ///////////////// TODO RESUMPTION POINT:
-      //////////////// INSTRUCITON 4 Should not issue for 3 cycles. figure out why.
-
       //ISSUE
       for(j=0; j < width; ++j){
          for(instruction *i : diis) {
             i->is_beg=clk;
-            if(i->loaded /*&& i->r1_ready && i->r2_ready*/) {
+            if(i->loaded && i->r1_ready && i->r2_ready) {
 
                i->di_dur = clk-i->di_beg;
                i->ex_beg=clk+1;
@@ -216,27 +223,6 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
             rrdi[j]->rr_dur=clk-rrdi[j]->rr_beg;
             diis.emplace_back(rrdi[j]);
             iss_avail--;
-
-            /*
-            if(rrdi[j]->r1_renamed && rob[rrdi[j]->r1b].ready) {
-               ra1 = true;
-            } else if (rrdi[j]->r1_renamed && !rob[rrdi[j]->r1b].ready) {
-               ra1 = false;
-            } else {
-               ra1=true;
-            }
-            ra1t = rrdi[j]->r1b;
-
-            if(rrdi[j]->r2_renamed && rob[rrdi[j]->r1b].ready) {
-               ra2 = true;
-            } else if (rrdi[j]->r2_renamed && !rob[rrdi[j]->r1b].ready) {
-               ra2 = false;
-            } else {
-               ra2=true;
-            }
-            ra2t = rrdi[j]->r2b;
-            iq.emplace_back(iq_line( ra1, ra1t, ra2, ra2t, rrdi[j]->dest, rrdi[j]->pc));*/
-
          }
          rrdi.clear();
       }
@@ -248,18 +234,11 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
             rnrr[j]->rr_beg=clk;
             rnrr[j]->rn_dur=clk-rnrr[j]->rn_beg;
             // If both source operands ready
-            //if(((rnrr[j]->r1_renamed && rob[rnrr[j]->r1].ready)||!rnrr[j]->r1_renamed) &&
-            //((rnrr[j]->r2_renamed && rob[rnrr[j]->r2].ready)||!rnrr[j]->r2_renamed)) {
                rrdi.emplace_back(rnrr[j]);
                rnrr[j]->loaded = true;
-
-            //}
-
          }
          rnrr.erase(std::remove_if(rnrr.begin(), rnrr.end(), [](instruction *in){return in->loaded;}), rnrr.end());
       }
-
-
 
 
       //RENAME
@@ -269,14 +248,13 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                dern[j]->rn_beg=clk;
                dern[j]->de_dur=clk-dern[j]->de_beg;
 
-
                // emplace instr into rob
-               rob[tail_rob].ready=false;
-               rob[tail_rob].pc=dern[j]->pc;
-               rob[tail_rob].arf_dest = dern[j]->dest;
-               rob[tail_rob].index=dern[j]->uid;
-
-
+               if(dern[j]->dest!= -1) {
+                  rob[tail_rob].ready = false;
+                  rob[tail_rob].pc = dern[j]->pc;
+                  rob[tail_rob].arf_dest = dern[j]->dest;
+                  rob[tail_rob].index = dern[j]->uid;
+               }
 
                // rename the registers
                if(dern[j]->r1 != -1 && rmt[dern[j]->r1].valid) {
@@ -300,16 +278,19 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                   dern[j]->r2_ready = true;
                }
                // update the rmt
-               if(rob[tail_rob].arf_dest != -1) {
+               if(dern[j]->dest != -1) {
                   rmt[rob[tail_rob].arf_dest].tag = tail_rob;
                   rmt[rob[tail_rob].arf_dest].valid = true;
-               }
+                  dern[j]->rob_dest = tail_rob;
+                  // move rob pointer
+                  tail_rob++;
+                  rob_avail--;
+                  if(tail_rob==rob.size()) tail_rob=0;
+               } else
+               {dern[j]->rob_dest = -2;}
 
-               dern[j]->rob_dest = tail_rob;
-               // move rob pointer
-               tail_rob++;
-               rob_avail--;
-               if(tail_rob==rob.size()) tail_rob=0;
+
+
 
                rnrr.emplace_back(dern[j]);
             }

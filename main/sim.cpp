@@ -6,18 +6,8 @@
 #include <algorithm>
 #include "sim_proc.h"
 #include "OO_Structures.h"
-/*
-   typedef struct rob_point{
-      size_t index;
-      void operator=(uint_fast16_t inc){
-         index=inc;
-         if(index == rob_)
-      }
-} rob_pointer;*/
 
-   uint_fast32_t uid, clk, instr_count;
-
-
+   uint_fast32_t uid, clk;
 
    const size_t ARF_SIZE = 67;
 
@@ -29,6 +19,9 @@
    void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max);
 
 
+void print_report(const char *trace_file, const proc_params &params, size_t printchars,
+                  std::vector<instruction> &instr);
+
 int main (int argc, char* argv[])
 {
     FILE *FP;               // File handler
@@ -37,13 +30,11 @@ int main (int argc, char* argv[])
     int op_type, dest, src1, src2;  // Variables are read from trace file
     unsigned long int pc; // Variable holds the pc read from input file
 
-    /***** CHANGED INPUT ARGSSSSS */
-    /*
-    if (argc != 5)
+    if (argc < 5)
     {
         printf("Error: Wrong number of inputs:%d\n", argc-1);
         exit(EXIT_FAILURE);
-    }*/
+    }
 
     
     params.rob_size     = strtoul(argv[1], NULL, 10);
@@ -52,34 +43,17 @@ int main (int argc, char* argv[])
    size_t printchars = 0;
     if(argc>5) printchars = strtoul(argv[5], NULL, 10);
     trace_file          = argv[4];
-    /*printf("rob_size:%lu "
-            "iq_size:%lu "
-            "width:%lu "
-            "tracefile:%s\n", params.rob_size, params.iq_size, params.width, trace_file);*/
    size_t i;
 
     for(i=0;i<params.rob_size;++i){
        rob.emplace_back(rob_line(i));
     }
 
-/*
-   for(i=0;i<params.iq_size;++i){
-      iq.emplace_back(iq_line());
-   }
-*/
    for(i=0;i<ARF_SIZE;++i){
       rmt.emplace_back(rmt_line());
    }
 
-   uid= clk= instr_count=0;
-
-
-
-   /////// DEBUG POINTERS
-   /*
-   std::vector<iq_line> *dbg_z_isq = &iq;
-   uint_fast32_t *dbg_uid=&uid, *dbg_clk=&clk, *dbg_instr_count=&instr_count;
-   size_t *dbg_head_rob=&head_rob, *dbg_tail_rob=&tail_rob;*/
+   uid= clk=0;
 
     // Open trace_file in read mode
     FP = fopen(trace_file, "r");
@@ -94,49 +68,23 @@ int main (int argc, char* argv[])
 
     while(fscanf(FP, "%lx %d %d %d %d", &pc, &op_type, &dest, &src1, &src2) != EOF)
     {
-         //    printf("%lx %d %d %d %d\n", pc, op_type, dest, src1, src2); //Print to check if inputs have been read correctly
         instr.emplace_back(instruction(uid, pc, op_type, dest, src1, src2));
         ++uid;
     }
     fclose(FP);
 
    run_simulation(instr, params.width, params.iq_size);
-   bool trunc;
-   printchars == 0 ? trunc=false:trunc=true;
 
-    for(instruction &i : instr) {
-       if(trunc && --printchars == 0) break;
-       std::cout << i.to_s();
-    }
+   print_report(trace_file, params, printchars, instr);
 
-    uint_fast32_t num_cycle = instr.back().rt_beg + instr.back().rt_dur;
-
-    printf ("# === Simulator Command =========\n"
-            "# ./sim %lu %lu %lu %s\n"
-            "# === Processor Configuration ===\n"
-            "# ROB_SIZE = %lu\n"
-            "# IQ_SIZE  = %lu\n"
-            "# WIDTH    = %lu\n"
-            "# === Simulation Results ========\n"
-            "# Dynamic Instruction Count    = %lu\n"
-            "# Cycles                       = %lu\n"
-            "# Instructions Per Cycle (IPC) = %.2f\n", params.rob_size, params.iq_size, params.width, trace_file,
-            params.rob_size, params.iq_size, params.width, instr.size(), num_cycle, (double)((double)instr.size() / (double) num_cycle));
-
-
-    return EXIT_SUCCESS;
+   return EXIT_SUCCESS;
 }
 
-void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max){
-   //bool done = false;
-   std::vector<rob_line> *dbg_z_rb = &rob;
-   std::vector<rmt_line> *dbg_z_rt = &rmt;
 
-   size_t head_rob, tail_rob, head_iq, tail_iq, count;
+
+void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max){
+   size_t head_rob, tail_rob, count;
    head_rob=tail_rob=0;
-   /*bool rob_full = false;
-   bool ra1, ra2;
-   int_fast32_t ra1t, ra2t;*/
 	std::vector<instruction *> exwb, isex, diis, rrdi, rnrr, dern, fede;
 
    uint_fast16_t j;
@@ -146,7 +94,6 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
    uint_fast32_t last_fetched = 0;
 
    while(true){
-
       //RETIRE
       for(j=0; j < width; ++j){
          if(rob_avail==rob.size()) break;
@@ -348,4 +295,27 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 
 }
 
+void print_report(const char *trace_file, const proc_params &params, size_t printchars,
+                  std::vector<instruction> &instr) {
+   bool trunc;
+   printchars == 0 ? trunc=false:trunc=true;
 
+   for(instruction &i : instr) {
+      if(trunc && --printchars == 0) break;
+      std::cout << i.to_s();
+   }
+
+   uint_fast32_t num_cycle = instr.back().rt_beg + instr.back().rt_dur;
+
+   printf ("# === Simulator Command =========\n"
+           "# ./sim %lu %lu %lu %s\n"
+           "# === Processor Configuration ===\n"
+           "# ROB_SIZE = %lu\n"
+           "# IQ_SIZE  = %lu\n"
+           "# WIDTH    = %lu\n"
+           "# === Simulation Results ========\n"
+           "# Dynamic Instruction Count    = %lu\n"
+           "# Cycles                       = %lu\n"
+           "# Instructions Per Cycle (IPC) = %.2f\n", params.rob_size, params.iq_size, params.width, trace_file,
+           params.rob_size, params.iq_size, params.width, instr.size(), num_cycle, (double)((double)instr.size() / (double) num_cycle));
+}

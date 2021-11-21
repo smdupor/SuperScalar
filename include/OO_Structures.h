@@ -63,6 +63,9 @@ struct instruction {
          case 7:
             this->ex_dur = 7;
             break;
+         case 8:
+            this->ex_dur = 8;
+            break;
          default:
             this->ex_dur = 1;
       }

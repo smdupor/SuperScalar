@@ -49,7 +49,7 @@ int main (int argc, char* argv[])
     params.rob_size     = strtoul(argv[1], NULL, 10);
     params.iq_size      = strtoul(argv[2], NULL, 10);
     params.width        = strtoul(argv[3], NULL, 10);
-    size_t printchars = strtoul(argv[5], NULL, 10);
+    if(argc>5) size_t printchars = strtoul(argv[5], NULL, 10);
     trace_file          = argv[4];
     /*printf("rob_size:%lu "
             "iq_size:%lu "
@@ -102,9 +102,23 @@ int main (int argc, char* argv[])
    run_simulation(instr, params.width, params.iq_size);
 
     for(instruction &i : instr) {
-       if(--printchars == 0) break;
+      // if(--printchars == 0) break;
        std::cout << i.to_s();
     }
+
+    uint_fast32_t num_cycle = instr.back().rt_beg + instr.back().rt_dur;
+
+    printf ("# === Simulator Command =========\n"
+            "# ./sim %lu %lu %lu %s\n"
+            "# === Processor Configuration ===\n"
+            "# ROB_SIZE = %lu\n"
+            "# IQ_SIZE  = %lu\n"
+            "# WIDTH    = %lu\n"
+            "# === Simulation Results ========\n"
+            "# Dynamic Instruction Count    = %lu\n"
+            "# Cycles                       = %lu\n"
+            "# Instructions Per Cycle (IPC) = %.2f", params.rob_size, params.iq_size, params.width, trace_file,
+            params.rob_size, params.iq_size, params.width, instr.size(), num_cycle, (double)((double)instr.size() / (double) num_cycle));
 
 
     return EXIT_SUCCESS;
@@ -115,7 +129,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
    std::vector<rob_line> *dbg_z_rb = &rob;
    std::vector<rmt_line> *dbg_z_rt = &rmt;
 
-   size_t head_rob, tail_rob, head_iq, tail_iq;
+   size_t head_rob, tail_rob, head_iq, tail_iq, count;
    head_rob=tail_rob=0;
    /*bool rob_full = false;
    bool ra1, ra2;
@@ -129,10 +143,6 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
    uint_fast32_t last_fetched = 0;
 
    while(true){
-
-      //////// NEXT STEPS: RETIRE SEEMS BROKEN BASED ON THE FACT THAT DEST -1 instrs not being put
-      /////// Into the ROB. Need to refactor to add these back into the ROB AND fix register readiness
-      /////// Lookups in a different manner
 
       //RETIRE
       for(j=0; j < width; ++j){
@@ -197,17 +207,19 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       isex.erase(std::remove_if(isex.begin(), isex.end(), [](instruction *in){return in->complete;}), isex.end());
 
       //ISSUE
-      for(j=0; j < width; ++j){
+      count = 0;
+      for(j=0; j < width && count < width; ++j){
          for(instruction *i : diis) {
-            i->is_beg=clk;
-            if(i->loaded && i->r1_ready && i->r2_ready) {
+            if(i->is_beg ==0) i->is_beg=clk;
+
+            if(i->loaded && i->r1_ready && i->r2_ready && count < width) {
 
                i->di_dur = clk-i->di_beg;
                i->ex_beg=clk+1;
                i->is_dur=clk-i->is_beg+1;
                i->loaded=false;
                isex.emplace_back(i);
-
+               count++;
                iss_avail++;
             }
          }
@@ -249,12 +261,12 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                dern[j]->de_dur=clk-dern[j]->de_beg;
 
                // emplace instr into rob
-               if(dern[j]->dest!= -1) {
+             //  if(dern[j]->dest!= -1) {
                   rob[tail_rob].ready = false;
                   rob[tail_rob].pc = dern[j]->pc;
                   rob[tail_rob].arf_dest = dern[j]->dest;
                   rob[tail_rob].index = dern[j]->uid;
-               }
+               //}
 
                // rename the registers
                if(dern[j]->r1 != -1 && rmt[dern[j]->r1].valid) {
@@ -281,16 +293,14 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                if(dern[j]->dest != -1) {
                   rmt[rob[tail_rob].arf_dest].tag = tail_rob;
                   rmt[rob[tail_rob].arf_dest].valid = true;
-                  dern[j]->rob_dest = tail_rob;
-                  // move rob pointer
-                  tail_rob++;
-                  rob_avail--;
-                  if(tail_rob==rob.size()) tail_rob=0;
-               } else
-               {dern[j]->rob_dest = -2;}
 
+               }
 
-
+               dern[j]->rob_dest = tail_rob;
+               // move rob pointer
+               tail_rob++;
+               rob_avail--;
+               if(tail_rob==rob.size()) tail_rob=0;
 
                rnrr.emplace_back(dern[j]);
             }

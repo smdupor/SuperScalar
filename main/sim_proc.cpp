@@ -17,7 +17,7 @@
 
    uint_fast32_t uid, clk, instr_count;
 
-   size_t head_rob, tail_rob, head_iq, tail_iq;
+
 
    const size_t ARF_SIZE = 67;
 
@@ -36,16 +36,20 @@ int main (int argc, char* argv[])
     proc_params params;       // look at sim_bp.h header file for the the definition of struct proc_params
     int op_type, dest, src1, src2;  // Variables are read from trace file
     unsigned long int pc; // Variable holds the pc read from input file
-    
+
+    /***** CHANGED INPUT ARGSSSSS */
+    /*
     if (argc != 5)
     {
         printf("Error: Wrong number of inputs:%d\n", argc-1);
         exit(EXIT_FAILURE);
-    }
+    }*/
+
     
     params.rob_size     = strtoul(argv[1], NULL, 10);
     params.iq_size      = strtoul(argv[2], NULL, 10);
     params.width        = strtoul(argv[3], NULL, 10);
+    size_t printchars = strtoul(argv[5], NULL, 10);
     trace_file          = argv[4];
     /*printf("rob_size:%lu "
             "iq_size:%lu "
@@ -56,7 +60,7 @@ int main (int argc, char* argv[])
     for(i=0;i<params.rob_size;++i){
        rob.emplace_back(rob_line(i));
     }
-    head_rob=tail_rob=0;
+
 /*
    for(i=0;i<params.iq_size;++i){
       iq.emplace_back(iq_line());
@@ -67,12 +71,11 @@ int main (int argc, char* argv[])
    }
 
    uid= clk= instr_count=0;
-   head_rob=tail_rob=0;
+
 
 
    /////// DEBUG POINTERS
-   /*std::vector<rob_line> *dbg_z_rb = &rob;
-   std::vector<rmt_line> *dbg_z_rt = &rmt;
+   /*
    std::vector<iq_line> *dbg_z_isq = &iq;
    uint_fast32_t *dbg_uid=&uid, *dbg_clk=&clk, *dbg_instr_count=&instr_count;
    size_t *dbg_head_rob=&head_rob, *dbg_tail_rob=&tail_rob;*/
@@ -99,6 +102,7 @@ int main (int argc, char* argv[])
    run_simulation(instr, params.width, params.iq_size);
 
     for(instruction &i : instr) {
+       if(--printchars == 0) break;
        std::cout << i.to_s();
     }
 
@@ -107,7 +111,12 @@ int main (int argc, char* argv[])
 }
 
 void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max){
-   bool done = false;
+   //bool done = false;
+   std::vector<rob_line> *dbg_z_rb = &rob;
+   std::vector<rmt_line> *dbg_z_rt = &rmt;
+
+   size_t head_rob, tail_rob, head_iq, tail_iq;
+   head_rob=tail_rob=0;
    /*bool rob_full = false;
    bool ra1, ra2;
    int_fast32_t ra1t, ra2t;*/
@@ -119,13 +128,17 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 
    uint_fast32_t last_fetched = 0;
 
-   while(!done){
+   while(true){
 
       //RETIRE
       for(j=0; j < width; ++j){
          if(rob_avail==rob.size()) break;
          if(rob[head_rob].ready){
-            instrs[rob[head_rob].index].rt_beg = clk;
+            instrs[rob[head_rob].index].rt_dur = clk-instrs[rob[head_rob].index].rt_beg+1;
+            for(rmt_line &l : rmt){
+               if(l.tag == (int_fast32_t) head_rob) l.valid = false;
+            }
+
             ++head_rob;
             ++rob_avail;
             if(head_rob == rob.size()) head_rob = 0;
@@ -136,7 +149,9 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       for(j=0; j < width; ++j){
          for(instruction * i : exwb){
             i->wb_beg=clk;
-            rob[i->rob_dest].ready;
+            i->wb_dur=1;
+            i->rt_beg=clk+1;
+            rob[i->rob_dest].ready=true;
 
          }
          exwb.clear();
@@ -145,8 +160,9 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 
       //EXECUTE
       for(instruction *i: isex){
-         if(i->ex_beg + i->ex_dur == clk) {
+         if(i->ex_beg + i->ex_dur == clk+1) {
             i->complete=true;
+
             exwb.emplace_back(i);
          }
       }
@@ -170,15 +186,22 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       isex.erase(std::remove_if(isex.begin(), isex.end(), [](instruction *in){return in->complete;}), isex.end());
 
 
+      ///////////////// TODO RESUMPTION POINT:
+      //////////////// INSTRUCITON 4 Should not issue for 3 cycles. figure out why.
 
       //ISSUE
       for(j=0; j < width; ++j){
          for(instruction *i : diis) {
-            if(i->loaded && i->r1_ready && i->r2_ready) {
-               i->is_beg=clk;
+            i->is_beg=clk;
+            if(i->loaded /*&& i->r1_ready && i->r2_ready*/) {
+
+               i->di_dur = clk-i->di_beg;
                i->ex_beg=clk+1;
+               i->is_dur=clk-i->is_beg+1;
                i->loaded=false;
                isex.emplace_back(i);
+
+               iss_avail++;
             }
          }
       }
@@ -190,6 +213,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       if(iss_avail >= rrdi.size() && rrdi.size()>0) {
          for (j = 0; j < width; ++j) {
             rrdi[j]->di_beg=clk;
+            rrdi[j]->rr_dur=clk-rrdi[j]->rr_beg;
             diis.emplace_back(rrdi[j]);
             iss_avail--;
 
@@ -222,7 +246,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       if(rrdi.empty()) {
          for (j = 0; j < rnrr.size(); ++j) {
             rnrr[j]->rr_beg=clk;
-
+            rnrr[j]->rn_dur=clk-rnrr[j]->rn_beg;
             // If both source operands ready
             //if(((rnrr[j]->r1_renamed && rob[rnrr[j]->r1].ready)||!rnrr[j]->r1_renamed) &&
             //((rnrr[j]->r2_renamed && rob[rnrr[j]->r2].ready)||!rnrr[j]->r2_renamed)) {
@@ -236,32 +260,23 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       }
 
 
-      /////////////////////////////// TODO WHEN PICKING BACK UP
-      //////////// THE RMT IS NOT BEING UPDATED WHICH IS CAUSING A DEADLOCK.
-      /////////// IN BELOW FUNCITONALITY WE ARE PULLING RMT ON ALWAYS_VALID MOST LIKELY
+
 
       //RENAME
       if(dern.size() <= rob_avail && !dern.empty() && rnrr.empty()) {
 
             for (j = 0; j < dern.size(); ++j) {
                dern[j]->rn_beg=clk;
+               dern[j]->de_dur=clk-dern[j]->de_beg;
 
-               // move rob pointer
-               tail_rob++;
-               rob_avail--;
-               if(tail_rob==rob.size()) tail_rob=0;
 
                // emplace instr into rob
                rob[tail_rob].ready=false;
                rob[tail_rob].pc=dern[j]->pc;
                rob[tail_rob].arf_dest = dern[j]->dest;
+               rob[tail_rob].index=dern[j]->uid;
 
 
-               // update the rmt
-               if(rob[tail_rob].arf_dest != -1) {
-                  rmt[rob[tail_rob].arf_dest].tag = tail_rob;
-                  rmt[rob[tail_rob].arf_dest].valid = true;
-               }
 
                // rename the registers
                if(dern[j]->r1 != -1 && rmt[dern[j]->r1].valid) {
@@ -284,7 +299,18 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                   dern[j]->r2b=dern[j]->r2;
                   dern[j]->r2_ready = true;
                }
+               // update the rmt
+               if(rob[tail_rob].arf_dest != -1) {
+                  rmt[rob[tail_rob].arf_dest].tag = tail_rob;
+                  rmt[rob[tail_rob].arf_dest].valid = true;
+               }
+
                dern[j]->rob_dest = tail_rob;
+               // move rob pointer
+               tail_rob++;
+               rob_avail--;
+               if(tail_rob==rob.size()) tail_rob=0;
+
                rnrr.emplace_back(dern[j]);
             }
             dern.clear();
@@ -296,6 +322,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       if(!fede.empty() && dern.empty()){
       for(j=0; j < fede.size(); ++j){
          fede[j]->de_beg=clk;
+         fede[j]->fe_dur=clk-fede[j]->fe_beg;
          dern.emplace_back(fede[j]);
 
       }
@@ -306,8 +333,9 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       //FETCH
       if(fede.empty()) {
          for (j = 0; j < width && last_fetched < instrs.size(); ++j) {
-            fede.emplace_back(&instrs[++last_fetched]);
+            fede.emplace_back(&instrs[last_fetched]);
             instrs[last_fetched].fe_beg=clk;
+            ++last_fetched;
          }
       }
 

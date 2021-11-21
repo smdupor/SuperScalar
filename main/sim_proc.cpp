@@ -237,8 +237,7 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       //DISPATCH
       if(iss_avail >= rrdi.size() && rrdi.size()>0) {
          for (j = 0; j < width; ++j) {
-            rrdi[j]->di_beg=clk;
-            rrdi[j]->rr_dur=clk-rrdi[j]->rr_beg;
+
             diis.emplace_back(rrdi[j]);
             iss_avail--;
          }
@@ -249,11 +248,12 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       //REG READ
       if(rrdi.empty()) {
          for (j = 0; j < rnrr.size(); ++j) {
-            rnrr[j]->rr_beg=clk;
-            rnrr[j]->rn_dur=clk-rnrr[j]->rn_beg;
+
             // If both source operands ready
                rrdi.emplace_back(rnrr[j]);
                rnrr[j]->loaded = true;
+            rrdi[j]->di_beg=clk+1;
+            rrdi[j]->rr_dur=clk+1-rrdi[j]->rr_beg;
          }
          rnrr.erase(std::remove_if(rnrr.begin(), rnrr.end(), [](instruction *in){return in->loaded;}), rnrr.end());
       }
@@ -308,6 +308,8 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
                if(tail_rob==rob.size()) tail_rob=0;
 
                rnrr.emplace_back(dern[j]);
+               rnrr[j]->rr_beg=clk+1;
+               rnrr[j]->rn_dur=clk+1-rnrr[j]->rn_beg;
             }
             dern.clear();
 

@@ -22,6 +22,9 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 void print_report(const char *trace_file, const proc_params &params, size_t printchars,
                   std::vector<instruction> &instr);
 
+void csv_report(const char *trace_file, const proc_params &params, size_t printchars,
+                  std::vector<instruction> &instr);
+
 int main(int argc, char *argv[]) {
    FILE *FP;               // File handler
    char *trace_file;       // Variable that holds trace file name;
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]) {
 
    run_simulation(instr, params.width, params.iq_size);
 
-   print_report(trace_file, params, printchars, instr);
+   csv_report(trace_file, params, printchars, instr);
 
    return EXIT_SUCCESS;
 }
@@ -296,4 +299,14 @@ void print_report(const char *trace_file, const proc_params &params, size_t prin
           "# Instructions Per Cycle (IPC) = %.2f\n", params.rob_size, params.iq_size, params.width, trace_file,
           params.rob_size, params.iq_size, params.width, instr.size(), num_cycle,
           (double) ((double) instr.size() / (double) num_cycle));
+}
+
+void csv_report(const char *trace_file, const proc_params &params, size_t printchars,
+                std::vector<instruction> &instr) {
+   uint_fast32_t num_cycle = instr.back().rt_beg + instr.back().rt_dur;
+   std::string output;
+   output += std::to_string(params.rob_size) + "," + std::to_string(params.width) + "," + std::to_string(params.iq_size)
+           + "," + std::to_string(instr.size()) + ","+ std::to_string(num_cycle) + "," +
+           std::to_string((double) ((double) instr.size() / (double) num_cycle)) + "\n";
+   std::cout << output;
 }

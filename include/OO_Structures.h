@@ -8,9 +8,11 @@
 #include <cstdint>
 #include <string>
 
-enum {FE=1, DE=2, RN =3, RR=4, DI=5, IS=6, EX=7, WB=8, RT=9};
+enum {
+   FE = 1, DE = 2, RN = 3, RR = 4, DI = 5, IS = 6, EX = 7, WB = 8, RT = 9
+};
 
-struct instruction{
+struct instruction {
 
    uint_fast32_t int_counter;
    uint_fast64_t uid;
@@ -20,10 +22,10 @@ struct instruction{
    bool loaded, complete, r1_renamed, r2_renamed, r1_ready, r2_ready, robbed;
 
    uint_fast32_t fe_beg, fe_dur, de_beg, de_dur, rn_beg, rn_dur, rr_beg, rr_dur, di_beg, di_dur, is_beg, is_dur,
-                  ex_beg, ex_dur, wb_beg, wb_dur, rt_beg, rt_dur;
+           ex_beg, ex_dur, wb_beg, wb_dur, rt_beg, rt_dur;
 
    explicit instruction(uint_fast64_t Uid, uint_fast32_t Pc, uint_fast8_t Type, int_fast16_t Dest, int_fast16_t R1,
-                        int_fast16_t R2){
+                        int_fast16_t R2) {
       int_counter = 0;
       this->uid = Uid;
       this->pc = Pc;
@@ -31,11 +33,11 @@ struct instruction{
       this->dest = Dest;
       this->r1 = R1;
       this->r2 = R2;
-      r1_renamed= r2_renamed=loaded = complete = false;
-      fu= type;
-      fe_beg= fe_dur= de_beg= de_dur= rn_beg= rn_dur= rr_beg= rr_dur= di_beg= di_dur= is_beg= is_dur=
-              ex_beg= ex_dur= wb_beg= wb_dur= rt_beg= rt_dur = 0;
-      switch(this->type) {
+      r1_renamed = r2_renamed = loaded = complete = false;
+      fu = type;
+      fe_beg = fe_dur = de_beg = de_dur = rn_beg = rn_dur = rr_beg = rr_dur = di_beg = di_dur = is_beg = is_dur =
+      ex_beg = ex_dur = wb_beg = wb_dur = rt_beg = rt_dur = 0;
+      switch (this->type) {
          case 1:
             this->ex_dur = 2;
             break;
@@ -52,41 +54,41 @@ struct instruction{
    std::string to_s() const {
       std::string out;
       out += std::to_string(uid) + " fu{" + std::to_string(fu) + "} src{" + std::to_string(r1) + "," +
-              std::to_string(r2) +"} dst{" + std::to_string(dest) +
-              "} FE{"+std::to_string(fe_beg) + "," + std::to_string(fe_dur) +
-              "} DE{"+std::to_string(de_beg) + "," + std::to_string(de_dur) +
-              "} RN{"+std::to_string(rn_beg) + "," + std::to_string(rn_dur) +
-              "} RR{"+std::to_string(rr_beg) + "," + std::to_string(rr_dur) +
-              "} DI{"+std::to_string(di_beg) + "," + std::to_string(di_dur) +
-              "} IS{"+std::to_string(is_beg) + "," + std::to_string(is_dur) +
-              "} EX{"+std::to_string(ex_beg) + "," + std::to_string(ex_dur) +
-              "} WB{"+std::to_string(wb_beg) + "," + std::to_string(wb_dur) +
-              "} RT{"+std::to_string(rt_beg) + "," + std::to_string(rt_dur) + "}\n";
+             std::to_string(r2) + "} dst{" + std::to_string(dest) +
+             "} FE{" + std::to_string(fe_beg) + "," + std::to_string(fe_dur) +
+             "} DE{" + std::to_string(de_beg) + "," + std::to_string(de_dur) +
+             "} RN{" + std::to_string(rn_beg) + "," + std::to_string(rn_dur) +
+             "} RR{" + std::to_string(rr_beg) + "," + std::to_string(rr_dur) +
+             "} DI{" + std::to_string(di_beg) + "," + std::to_string(di_dur) +
+             "} IS{" + std::to_string(is_beg) + "," + std::to_string(is_dur) +
+             "} EX{" + std::to_string(ex_beg) + "," + std::to_string(ex_dur) +
+             "} WB{" + std::to_string(wb_beg) + "," + std::to_string(wb_dur) +
+             "} RT{" + std::to_string(rt_beg) + "," + std::to_string(rt_dur) + "}\n";
       return out;
    }
 
-   bool operator==(uint_fast32_t input){
+   bool operator==(uint_fast32_t input) {
       bool result;
-      input==this->int_counter ? result= true : result= false;
+      input == this->int_counter ? result = true : result = false;
       return result;
    }
 
-   bool operator<=(uint_fast32_t input){
+   bool operator<=(uint_fast32_t input) {
       bool result;
-      this->int_counter<=input ? result= true : result= false;
+      this->int_counter <= input ? result = true : result = false;
       return result;
    }
 
-   bool operator<(uint_fast32_t input){
+   bool operator<(uint_fast32_t input) {
       bool result;
-      this->int_counter<input ? result= true : result= false;
+      this->int_counter < input ? result = true : result = false;
       return result;
    }
 
-   bool ready(uint_fast8_t state){
-      switch(state){
+   bool ready(uint_fast8_t state) {
+      switch (state) {
          case EX:
-            if(type==0 && this->int_counter == this->ex_dur) return true;
+            if (type == 0 && this->int_counter == this->ex_dur) return true;
             break;
          default:
             return false;
@@ -105,7 +107,7 @@ struct rob_line {
       this->arf_dest = INT16_MIN;
       this->index = ind;
       this->pc = 0;
-      ready=exception=mispredict=false;
+      ready = exception = mispredict = false;
    }
 };
 
@@ -113,9 +115,9 @@ struct rmt_line {
    int_fast32_t tag;
    bool valid;
 
-   explicit rmt_line(){
+   explicit rmt_line() {
       tag = INT32_MIN;
-      valid= false;
+      valid = false;
    }
 };
 
@@ -129,20 +131,21 @@ struct iq_line {
 
    uint_fast32_t pc;
 
-   explicit iq_line(){
-      valid=ready_r1=ready_r2 = false;
-      tag_dest=tag_r1=tag_r2 = INT32_MIN;
+   explicit iq_line() {
+      valid = ready_r1 = ready_r2 = false;
+      tag_dest = tag_r1 = tag_r2 = INT32_MIN;
    }
-   explicit iq_line(bool rr1, int_fast32_t tr1, bool rr2, int_fast32_t tr2, int_fast32_t dst, uint_fast32_t procg){
-      valid=true;
+
+   explicit iq_line(bool rr1, int_fast32_t tr1, bool rr2, int_fast32_t tr2, int_fast32_t dst, uint_fast32_t procg) {
+      valid = true;
       ready_r1 = rr1;
-      ready_r2=rr2;
+      ready_r2 = rr2;
 
-      tag_dest=dst;
-      tag_r1=tr1;
-      tag_r2=tr2;
+      tag_dest = dst;
+      tag_r1 = tr1;
+      tag_r2 = tr2;
 
-      pc=procg;
+      pc = procg;
    }
 };
 

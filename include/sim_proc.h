@@ -7,6 +7,4 @@ typedef struct proc_params{
     unsigned long int width;
 }proc_params;
 
-// Put additional data structures here as per your requirement
-
 #endif

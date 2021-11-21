@@ -120,7 +120,7 @@ int main (int argc, char* argv[])
             "# === Simulation Results ========\n"
             "# Dynamic Instruction Count    = %lu\n"
             "# Cycles                       = %lu\n"
-            "# Instructions Per Cycle (IPC) = %.2f", params.rob_size, params.iq_size, params.width, trace_file,
+            "# Instructions Per Cycle (IPC) = %.2f\n", params.rob_size, params.iq_size, params.width, trace_file,
             params.rob_size, params.iq_size, params.width, instr.size(), num_cycle, (double)((double)instr.size() / (double) num_cycle));
 
 

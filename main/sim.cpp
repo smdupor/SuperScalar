@@ -109,6 +109,22 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
 
    uint_fast32_t last_fetched = 0;
 
+   char c;
+
+   std::string s;   while(true){
+      std::cout<<"Stall an instruction?: \n";
+      std::cin>>c;
+      if(c!='y')
+         break;
+      std::cout<<"Enter number (instrs start at 1): \n";
+      std::cin>>s;
+      uint_fast32_t k = stoi(s)-1;
+      std::cout<<"Start on Cycle (Cycles start at 1)?: \n";
+      std::cin>>s;
+      uint_fast32_t m = stoi(s)-1;
+      instrs[k].fe_beg=m;
+   }
+
    while (true) {
       //RETIRE
       for (j = 0; j < width; ++j) {
@@ -278,11 +294,13 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       //FETCH
       if (fe_de.empty()) {
          for (j = 0; j < width && last_fetched < instrs.size(); ++j) {
-            fe_de.emplace_back(&instrs[last_fetched]);
-            instrs[last_fetched].fe_beg = clk;
-            fe_de[j]->de_beg = clk + 1;
-            fe_de[j]->fe_dur = clk + 1 - fe_de[j]->fe_beg;
-            ++last_fetched;
+            if(clk>=instrs[last_fetched].fe_beg) {
+               fe_de.emplace_back(&instrs[last_fetched]);
+               instrs[last_fetched].fe_beg = clk;
+               fe_de[j]->de_beg = clk + 1;
+               fe_de[j]->fe_dur = clk + 1 - fe_de[j]->fe_beg;
+               ++last_fetched;
+            }
          }
       }
 
@@ -309,8 +327,27 @@ void print_report(const char *trace_file, const proc_params &params, size_t prin
       if (trunc && --printchars == 0) break;
       std::cout << i.to_s();
    }
-
    uint_fast32_t num_cycle = instr.back().rt_beg + instr.back().rt_dur;
+std::string headr;
+   headr += "\nin";
+   std::string s;
+   std::cout<<"How many cycles to show?: \n";
+   std::cin>>s;
+   uint_fast32_t m = stoi(s);
+
+   for(size_t i=1;i<=m;++i){
+      i<=9 ? headr = headr+" [0" +std::to_string(i)+"] ":headr = headr + " [" + std::to_string(i) +"] ";
+   }
+   std::cout <<headr<< "\n";
+
+   for (instruction &i: instr) {
+      if (trunc && --printchars == 0) break;
+      std::string tail= i.to_string();
+      while(tail.length() < headr.length()-1)
+         tail+=" [--] ";
+      std::cout << tail<<std::endl;
+   }
+
 
    printf("# === Simulator Command =========\n"
           "# ./sim %lu %lu %lu %s\n"

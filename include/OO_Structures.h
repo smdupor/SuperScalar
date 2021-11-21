@@ -45,11 +45,23 @@ struct instruction {
       fe_beg = fe_dur = de_beg = de_dur = rn_beg = rn_dur = rr_beg = rr_dur = di_beg = di_dur = is_beg = is_dur =
       ex_beg = ex_dur = wb_beg = wb_dur = rt_beg = rt_dur = 0;
       switch (this->type) {
-         case 1:
+         case 2:
             this->ex_dur = 2;
             break;
-         case 2:
+         case 3:
+            this->ex_dur = 3;
+            break;
+         case 4:
+            this->ex_dur = 4;
+            break;
+         case 5:
             this->ex_dur = 5;
+            break;
+         case 6:
+            this->ex_dur = 6;
+            break;
+         case 7:
+            this->ex_dur = 7;
             break;
          default:
             this->ex_dur = 1;
@@ -72,6 +84,78 @@ struct instruction {
              "} WB{" + std::to_string(wb_beg) + "," + std::to_string(wb_dur) +
              "} RT{" + std::to_string(rt_beg) + "," + std::to_string(rt_dur) + "}\n";
       return out;
+   }
+   std::string to_string() const {
+      std::string out;
+      out += "i"+std::to_string(uid+1);
+      int t=fe_beg;
+      while(t>0) {
+         out += " [--] ";
+         --t;
+      }
+      t=fe_dur;
+      while(t>0) {
+         out += " [FE] ";
+         --t;
+      }
+
+      t=de_dur;
+      while(t>0) {
+         out += " [DE] ";
+         --t;
+      }
+
+
+      t=rn_dur;
+      while(t>0) {
+         out += " [RN] ";
+         --t;
+      }
+
+
+
+      t=rr_dur;
+      while(t>0) {
+         out += " [RR] ";
+         --t;
+      }
+
+
+      t=di_dur;
+      while(t>0) {
+         out += " [DI] ";
+         --t;
+      }
+
+
+      t=is_dur;
+      while(t>0) {
+         out += " [IS] ";
+         --t;
+      }
+
+
+      t=ex_dur;
+      while(t>0) {
+         out += " [EX] ";
+         --t;
+      }
+
+
+      t=wb_dur;
+      while(t>0) {
+         out += " [WB] ";
+         --t;
+      }
+
+
+      t=rt_dur;
+      while(t>0) {
+         out += " [RT] ";
+         --t;
+      }
+      //out+="\n";
+   return out;
    }
 
    bool operator==(uint_fast32_t input) {

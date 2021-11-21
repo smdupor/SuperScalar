@@ -49,7 +49,8 @@ int main (int argc, char* argv[])
     params.rob_size     = strtoul(argv[1], NULL, 10);
     params.iq_size      = strtoul(argv[2], NULL, 10);
     params.width        = strtoul(argv[3], NULL, 10);
-    if(argc>5) size_t printchars = strtoul(argv[5], NULL, 10);
+   size_t printchars = 0;
+    if(argc>5) printchars = strtoul(argv[5], NULL, 10);
     trace_file          = argv[4];
     /*printf("rob_size:%lu "
             "iq_size:%lu "
@@ -100,9 +101,11 @@ int main (int argc, char* argv[])
     fclose(FP);
 
    run_simulation(instr, params.width, params.iq_size);
+   bool trunc;
+   printchars == 0 ? trunc=false:trunc=true;
 
     for(instruction &i : instr) {
-      // if(--printchars == 0) break;
+       if(trunc && --printchars == 0) break;
        std::cout << i.to_s();
     }
 
@@ -210,11 +213,14 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
       count = 0;
       for(j=0; j < width && count < width; ++j){
          for(instruction *i : diis) {
-            if(i->is_beg ==0) i->is_beg=clk;
+            if(i->is_beg ==0) {
+               i->is_beg = clk;
+               i->di_dur = clk-i->di_beg;
+            }
 
             if(i->loaded && i->r1_ready && i->r2_ready && count < width) {
 
-               i->di_dur = clk-i->di_beg;
+
                i->ex_beg=clk+1;
                i->is_dur=clk-i->is_beg+1;
                i->loaded=false;

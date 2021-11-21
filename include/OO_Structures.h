@@ -17,7 +17,7 @@ struct instruction{
    uint_fast32_t pc;
    uint_fast8_t type;
    int_fast16_t dest, r1, r2, r1b, r2b, fu, rob_dest;
-   bool loaded, complete, r1_renamed, r2_renamed, r1_ready, r2_ready;
+   bool loaded, complete, r1_renamed, r2_renamed, r1_ready, r2_ready, robbed;
 
    uint_fast32_t fe_beg, fe_dur, de_beg, de_dur, rn_beg, rn_dur, rr_beg, rr_dur, di_beg, di_dur, is_beg, is_dur,
                   ex_beg, ex_dur, wb_beg, wb_dur, rt_beg, rt_dur;

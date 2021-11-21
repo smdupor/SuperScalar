@@ -1,3 +1,14 @@
+/**
+ * sim.cpp handles all procedural functionality for the OOO superscalar simulator.
+ * Notably, this file contains the int main(), global ROB, ARF, RMT, IQ buffers,
+ * and two procedural functions to run the simulation and print the results.
+ *
+ * Created on: November 10th, 2021
+ * Author: Stevan Dupor
+ * Copyright (C) 2021 Stevan Dupor - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +40,7 @@ int main(int argc, char *argv[]) {
    int op_type, dest, src1, src2;  // Variables are read from trace file
    unsigned long int pc; // Variable holds the pc read from input file
 
-   if (argc < 5) {
+   if (argc != 5) {
       printf("Error: Wrong number of inputs:%d\n", argc - 1);
       exit(EXIT_FAILURE);
    }
@@ -63,20 +74,30 @@ int main(int argc, char *argv[]) {
 
    std::vector<instruction> instr;
 
+   // Decouple instruction reads from program execution -- read all instructions NOW and store in MEM.
    while (fscanf(FP, "%lx %d %d %d %d", &pc, &op_type, &dest, &src1, &src2) != EOF) {
       instr.emplace_back(instruction(uid, pc, op_type, dest, src1, src2));
       ++uid;
    }
    fclose(FP);
 
+   // Run Complete simulation with loaded instructions.
    run_simulation(instr, params.width, params.iq_size);
 
+   // Print the results.
    print_report(trace_file, params, printchars, instr);
 
    return EXIT_SUCCESS;
 }
 
-
+/**
+ * Procedural function to run the complete OOO Superscalar simulation. Blocks within this
+ * function are clearly labeled with their pipeline stages, and the pipeline registers
+ * which are implemented as vectors of pointers, may remain locally defined as-such.
+ * @param instrs The entire instruction trace, loaded and ready to be traversed
+ * @param width The width of the superscalar processor
+ * @param iq_max The maximum number of instructions that may be allowed in the issue queue at the same time.
+ */
 void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_fast16_t iq_max) {
    size_t head_rob, tail_rob, count;
    head_rob = tail_rob = 0;
@@ -272,6 +293,13 @@ void run_simulation(std::vector<instruction> &instrs, uint_fast16_t width, uint_
    }
 }
 
+/**
+ * Print the results of the simulation
+ * @param trace_file the filename of the tracefile
+ * @param params the parameters of the simulation
+ * @param printchars a switch variable that tells how many entries to print, if used
+ * @param instr the vector of completed instructions
+ */
 void print_report(const char *trace_file, const proc_params &params, size_t printchars,
                   std::vector<instruction> &instr) {
    bool trunc;

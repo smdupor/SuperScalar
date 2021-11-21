@@ -1,6 +1,13 @@
-//
-// Created by smdupor on 11/10/21.
-//
+/**
+ * OO_Structures handles all structures for the OOO superscalar simulator.
+ * Notably, this file only contains structure definitions: all funcitonality is
+ * purely procedural and handled in the sim.cpp file.
+ *
+ * Created on: November 10th, 2021
+ * Author: Stevan Dupor
+ * Copyright (C) 2021 Stevan Dupor - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ */
 
 #ifndef SUPERSCALAR_OO_STRUCTURES_H
 #define SUPERSCALAR_OO_STRUCTURES_H

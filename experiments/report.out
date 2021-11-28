@@ -1,0 +1,8 @@
+\BOOKMARK [1][-]{section*.1}{Introduction and Methods}{}% 1
+\BOOKMARK [1][-]{section*.2}{Experiment A: Fixed, Large ROB, varying Width and IQ size}{}% 2
+\BOOKMARK [2][-]{section*.3}{Figures of GCC and Perl Trace IPC w/ Varying IQ}{section*.2}% 3
+\BOOKMARK [2][-]{section*.4}{Discussion of GCC and Perl Trace IPC w/ Varying IQ}{section*.2}% 4
+\BOOKMARK [1][-]{section*.5}{Experiment B: Fixed IQ, varying Width and ROB size}{}% 5
+\BOOKMARK [2][-]{section*.6}{Plots of IPC for ROB Size Experiments}{section*.5}% 6
+\BOOKMARK [2][-]{section*.7}{Discussion of ROB Size Experiments}{section*.5}% 7
+\BOOKMARK [1][-]{section*.8}{Conclusions and Roadmap}{}% 8
